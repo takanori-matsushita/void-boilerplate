@@ -1,0 +1,19 @@
+{
+  "name": "@club/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Drizzle スキーマ、テナントトランザクションのヘルパ、RLS マイグレーション SQL",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./rls": "./src/rls.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@club/shared": "workspace:*",
+    "drizzle-orm": "0.45.4"
+  }
+}

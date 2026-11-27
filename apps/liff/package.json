@@ -1,0 +1,40 @@
+{
+  "name": "@club/liff",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev --port 5302 --strictPort",
+    "build": "vp build",
+    "preview": "vp preview",
+    "typecheck": "tsc --noEmit -p .",
+    "postinstall": "void prepare",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@club/core": "workspace:*",
+    "@club/db": "workspace:*",
+    "@club/shared": "workspace:*",
+    "@sentry/cloudflare": "11.19.0",
+    "hono": "^4.11.9",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "valibot": "1.5.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.5",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@void/react": "1.12.0",
+    "happy-dom": "21.0.4",
+    "oxc-transform-react": ">=0.152.0 <0.157.0",
+    "react-aria-components": "1.22.1",
+    "tailwindcss": "4.3.5",
+    "tailwindcss-react-aria-components": "2.2.0",
+    "typescript": "^7.0.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000",
+    "vite-plus": "1.7.0",
+    "void": "1.12.0"
+  }
+}

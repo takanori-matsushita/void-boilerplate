@@ -1,0 +1,69 @@
+# 依存の更新（Dependabot）。毎週月曜にまとめて PR を作る。
+# 方針: バージョンは exact で固定している。PR が来たら、CI と、必要なら回帰確認（spike/regress.sh 相当）を通してから取り込む。
+version: 2
+
+updates:
+  # npm（pnpm のワークスペース。pnpm-lock.yaml を検出して pnpm で更新する）
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    # Void は、リリースノートと回帰確認（テナント分離・トランザクション・Webhook・Queue / Cron・デプロイ）の後に、手で上げる
+    ignore:
+      - dependency-name: void
+      - dependency-name: '@void/*'
+    groups:
+      # Vite+ は Vitest・Oxlint・Oxfmt を取り込むので、まとめて上げる（二重化によるバージョンずれを避ける）
+      vite-plus:
+        patterns: ['vite-plus', 'vite-plus-*', '@voidzero-dev/*']
+      react-aria:
+        patterns: ['react-aria-components', '@react-aria/*', '@react-stately/*', '@internationalized/*']
+      tailwind:
+        patterns: ['tailwindcss', '@tailwindcss/*', 'tailwindcss-*']
+      tanstack:
+        patterns: ['@tanstack/*']
+      # 開発用ツールの小さな更新は、1 つの PR にまとめる
+      dev-tools:
+        dependency-type: development
+        update-types: [minor, patch]
+        exclude-patterns: ['vite-plus', 'vite-plus-*', '@voidzero-dev/*']
+
+  # GitHub Actions（SHA で固定したものも、コメントのタグに合わせて更新される）
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+      timezone: Asia/Tokyo
+    labels: [dependencies]
+    groups:
+      actions:
+        patterns: ['*']
+
+  # Docker（開発用のイメージ）。PostgreSQL のメジャーバージョンは、Neon に合わせて手で決める
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+      timezone: Asia/Tokyo
+    labels: [dependencies]
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+      timezone: Asia/Tokyo
+    labels: [dependencies]
+    ignore:
+      - dependency-name: postgres
+        update-types: ['version-update:semver-major']

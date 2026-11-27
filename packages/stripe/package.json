@@ -1,0 +1,9 @@
+{
+  "name": "@club/stripe",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Stripe Connect ラッパ",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc --noEmit -p ." }
+}

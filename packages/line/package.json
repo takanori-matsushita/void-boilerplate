@@ -1,0 +1,9 @@
+{
+  "name": "@club/line",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "LINE Messaging API / IDトークン検証クライアント",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc --noEmit -p ." }
+}

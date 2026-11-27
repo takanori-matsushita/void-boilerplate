@@ -1,0 +1,16 @@
+{
+  "name": "@club/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Valibot スキーマ・型・定数（API とフォームで共用）",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "valibot": "1.5.0"
+  }
+}

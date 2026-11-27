@@ -1,0 +1,20 @@
+# コミット前フック（Lefthook。ホストで動く。コンテナ内では動かさない）。`vp install`（ホスト）の prepare で自動的に有効になる。
+# ステージされたコードを検査するだけで、ファイルは書き換えない（`git add -p` で一部だけステージしたとき、ステージしていない変更を巻き込まないため）。
+# 違反があればコミットが止まるので、`vp check --fix`（または `make fix`）で直して、ステージし直す。型チェックは CI と `make ci`。
+pre-commit:
+  jobs:
+    - name: 整形・リント（Oxfmt / Oxlint）
+      glob: '*.{ts,tsx,mts,mjs}'
+      run: |
+        if [ ! -x node_modules/.bin/vp ]; then
+          echo "ホストに node_modules がありません。先に 'npx -y -p vite-plus@1.7.0 vp install' を実行してください（Node 24.22 以上が必要）。" >&2
+          exit 1
+        fi
+        node_modules/.bin/vp check {staged_files}
+    - name: 秘密情報の混入検査（gitleaks。入っていなければ警告だけ。CI でも検査する）
+      run: |
+        if command -v gitleaks >/dev/null 2>&1; then
+          gitleaks git --staged --redact --no-banner
+        else
+          echo "gitleaks が見つからないため、ローカルの秘密情報検査を飛ばします（CI では検査されます）。入れるには: brew install gitleaks" >&2
+        fi

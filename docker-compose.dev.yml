@@ -1,0 +1,163 @@
+# ローカル開発環境（アプリ 2 つ + Postgres）。使い方は `make help`（README.md「開発の始め方」）。
+# - admin   : http://localhost:5301（管理画面 + 管理 API）
+# - liff    : http://localhost:5302（保護者向け LIFF + 保護者用 API）
+# - postgres: localhost:54329（アプリ用 app_user / 管理用 app_admin を初期化）
+# - tools   : 管理用ロールで動く、一度きりのコマンド用（make migrate / seed / test など）
+# 本番は Cloudflare Workers で動く。これは開発専用。
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  working_dir: /workspace
+  init: true
+
+# node_modules のボリュームは、ホストの node_modules・OS と混ざらないコンテナ専用。ワークスペースの各 package.json の場所ごとに 1 つ。
+# YAML のアンカーはリストの中で展開できないので、サービスごとに同じものを並べている。
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: club
+    ports:
+      - '54329:5432'
+    volumes:
+      - ./deploy/sql/init-roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d club']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # 名前付きボリュームは root 所有で作られるため、node ユーザーが書けるように所有者を直す（一度きり・べき等）
+  init:
+    <<: *app
+    user: root
+    command: >
+      chown node:node /workspace/node_modules /workspace/apps/admin/node_modules /workspace/apps/liff/node_modules
+      /workspace/packages/db/node_modules /workspace/packages/core/node_modules /workspace/packages/shared/node_modules
+      /workspace/packages/line/node_modules /workspace/packages/stripe/node_modules
+    volumes:
+      - .:/workspace
+      - nm_root:/workspace/node_modules
+      - nm_admin:/workspace/apps/admin/node_modules
+      - nm_liff:/workspace/apps/liff/node_modules
+      - nm_db:/workspace/packages/db/node_modules
+      - nm_core:/workspace/packages/core/node_modules
+      - nm_shared:/workspace/packages/shared/node_modules
+      - nm_line:/workspace/packages/line/node_modules
+      - nm_stripe:/workspace/packages/stripe/node_modules
+      - node_home:/home/node
+
+  # 依存のインストール（一度きり。lockfile を変えない --frozen-lockfile）
+  install:
+    <<: *app
+    command: vp install --frozen-lockfile
+    volumes:
+      - .:/workspace
+      - nm_root:/workspace/node_modules
+      - nm_admin:/workspace/apps/admin/node_modules
+      - nm_liff:/workspace/apps/liff/node_modules
+      - nm_db:/workspace/packages/db/node_modules
+      - nm_core:/workspace/packages/core/node_modules
+      - nm_shared:/workspace/packages/shared/node_modules
+      - nm_line:/workspace/packages/line/node_modules
+      - nm_stripe:/workspace/packages/stripe/node_modules
+      - node_home:/home/node
+    depends_on:
+      init: { condition: service_completed_successfully }
+
+  # 管理用ロール（app_admin。RLS をバイパス）の接続で動く、一度きりのコマンド用（`docker compose run --rm tools …`）。
+  # アプリ用ロール（app_user）は DDL できないため、マイグレーション・DB のリセット・シーダー・結合テストはここで動かす。
+  # 開発サーバーの .env を書き換えない（書き換えると、開発サーバーが再起動してしまう）。
+  tools:
+    <<: *app
+    profiles: [tools]
+    working_dir: /workspace/apps/admin
+    environment:
+      # 結合テストの接続先（Docker のネットワーク内の Postgres。テストが一時データベースを作る）
+      TEST_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/club
+    volumes:
+      - .:/workspace
+      - nm_root:/workspace/node_modules
+      - nm_admin:/workspace/apps/admin/node_modules
+      - nm_liff:/workspace/apps/liff/node_modules
+      - nm_db:/workspace/packages/db/node_modules
+      - nm_core:/workspace/packages/core/node_modules
+      - nm_shared:/workspace/packages/shared/node_modules
+      - nm_line:/workspace/packages/line/node_modules
+      - nm_stripe:/workspace/packages/stripe/node_modules
+      - node_home:/home/node
+      - ./deploy/docker/admin.env:/workspace/apps/admin/.env:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+      install: { condition: service_completed_successfully }
+
+  admin:
+    <<: *app
+    command: vp run -F @club/admin dev --host 0.0.0.0
+    ports:
+      - '5301:5301'
+    volumes:
+      - .:/workspace
+      - nm_root:/workspace/node_modules
+      - nm_admin:/workspace/apps/admin/node_modules
+      - nm_liff:/workspace/apps/liff/node_modules
+      - nm_db:/workspace/packages/db/node_modules
+      - nm_core:/workspace/packages/core/node_modules
+      - nm_shared:/workspace/packages/shared/node_modules
+      - nm_line:/workspace/packages/line/node_modules
+      - nm_stripe:/workspace/packages/stripe/node_modules
+      - node_home:/home/node
+      # コンテナ内の .env（Postgres のホスト名が postgres。アプリ用ロール）
+      - ./deploy/docker/app.env:/workspace/apps/admin/.env:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+      install: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:5301/').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  liff:
+    <<: *app
+    command: vp run -F @club/liff dev --host 0.0.0.0
+    ports:
+      - '5302:5302'
+    volumes:
+      - .:/workspace
+      - nm_root:/workspace/node_modules
+      - nm_admin:/workspace/apps/admin/node_modules
+      - nm_liff:/workspace/apps/liff/node_modules
+      - nm_db:/workspace/packages/db/node_modules
+      - nm_core:/workspace/packages/core/node_modules
+      - nm_shared:/workspace/packages/shared/node_modules
+      - nm_line:/workspace/packages/line/node_modules
+      - nm_stripe:/workspace/packages/stripe/node_modules
+      - node_home:/home/node
+      - ./deploy/docker/app.env:/workspace/apps/liff/.env:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+      install: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:5302/').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+volumes:
+  nm_root:
+  nm_admin:
+  nm_liff:
+  nm_db:
+  nm_core:
+  nm_shared:
+  nm_line:
+  nm_stripe:
+  node_home:

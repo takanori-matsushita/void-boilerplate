@@ -1,0 +1,27 @@
+node_modules
+dist
+.void
+.wrangler
+.cloudflare
+.void-wrangler.jsonc
+.env
+.env.*
+!.env.example
+.dev.vars
+*.tsbuildinfo
+.DS_Store
+# 環境ごとの lock は deploy/<env>/ で管理する（アプリ直下の void.lock.json はデプロイ時に配置される作業用コピー）
+apps/*/void.lock.json
+
+# フェーズ0 の検証用コード（本実装に持ち込まない。フェーズ 9 の完了後に削除する予定）
+spike/
+
+# Claude Code のローカル設定
+.claude/settings.local.json
+.claude/tmp
+
+# Claude Code の作業用（スクショ等）
+.claude/tmp/
+
+# pnpm のストア（Docker の install が、置き場を変えないとワークスペースに作る）
+.pnpm-store/

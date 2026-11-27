@@ -1,0 +1,3 @@
+# イメージのビルドに必要なのは Dockerfile.dev だけ（ソースはマウントする）
+*
+!Dockerfile.dev

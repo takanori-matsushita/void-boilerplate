@@ -1,0 +1,24 @@
+# ローカル開発専用のイメージ（本番は Cloudflare Workers で動くので、これは本番では使わない）。
+# ソースは docker-compose.dev.yml でマウントするため、イメージにはツールだけを入れる。
+FROM node:24.22.0-bookworm-slim
+
+# workerd（Cloudflare のローカル実行環境）が、システムの CA 証明書を要求する（軽量イメージには入っていない）
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# vp（Vite+）。pnpm は、package.json の packageManager（pnpm@10.34.9）に従って vp が用意する
+RUN npm install -g vite-plus@1.7.0
+
+# node ユーザー（uid 1000）で動かす。ボリュームの所有者を node にするため、マウント先を先に作っておく
+RUN mkdir -p /workspace && chown node:node /workspace
+# ワークスペースのローカルの vp を優先する（グローバルの vp は、依存のインストール前の最初の 1 回だけ使う）。
+# グローバルの vp だと、同梱の Vitest がワークスペースの依存（happy-dom など）を見つけられず、アプリのテストが動かない
+ENV PATH=/workspace/node_modules/.bin:$PATH
+# pnpm のストアは、ワークスペース（ホストのソース）の中ではなく、ホームのボリュームに置く
+ENV npm_config_store_dir=/home/node/.pnpm-store
+# 対話のない実行（pnpm の確認を省く）。CI があると prepare（lefthook install）は動かない（コンテナには git が無く、ホストの .git/hooks を書き換えない）
+ENV CI=true
+
+USER node
+WORKDIR /workspace

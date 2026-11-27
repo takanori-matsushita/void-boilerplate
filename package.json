@@ -1,0 +1,32 @@
+{
+  "name": "club",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=24.22.0",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "typecheck": "vp run -F './apps/*' -F './packages/*' typecheck && tsc --noEmit -p deploy",
+    "test": "vp test run",
+    "test:integration": "vp test run --project integration",
+    "build": "vp run -F './apps/*' build",
+    "deploy:cli": "node deploy/scripts/cli.mts",
+    "test:unit": "vp test run --project unit",
+    "test:apps": "vp run -F './apps/*' test",
+    "test:all": "vp run test && vp run test:apps",
+    "db:migrate": "node deploy/scripts/migrate-local.mts",
+    "prepare": "[ -n \"$CI\" ] || lefthook install"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.0",
+    "lefthook": "2.2.4",
+    "pg": "8.23.1",
+    "playwright": "1.65.1",
+    "typescript": "^7.0.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000",
+    "vite-plus": "1.7.0"
+  }
+}

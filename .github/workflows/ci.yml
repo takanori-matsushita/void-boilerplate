@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 秘密情報の混入検査（履歴全体）。組織のアカウントでは、GITLEAKS_LICENSE（無料で取得できるキー）をシークレットに入れる必要がある
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0（タグではなくコミットで固定する）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@cab1ab9eaff52d4857875f4f2c016e36af8f2c76 # v1.22.0（タグではなくコミットで固定する）
+        with:
+          node-version-file: .node-version
+          cache: true # vp install も自動実行される
+      - name: 整形・リント・型（Oxfmt / Oxlint）
+        run: vp check
+      - name: 型チェック（全パッケージ・アプリ）
+        run: vp run typecheck
+      - name: 単体テスト
+        run: vp run test
+      - name: 結合テスト用 Postgres（RLS 検証。アプリ用 / 管理用ロールを初期化）
+        run: make db-up
+      - name: 結合テスト
+        run: vp run test:integration
+      - name: コンポーネントテスト（admin / liff）
+        run: vp run test:apps
+      - name: ビルド（admin / liff）
+        run: vp run build

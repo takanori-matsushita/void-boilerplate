@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+@plugin 'tailwindcss-react-aria-components';
+
+/*
+ * デザイントークン（色・余白・文字サイズ・角丸など）は、`@theme` に集める。
+ * 値は、最初の画面で frontend-design の方針とともに決める（先回りして定義しない）。
+ *
+ * @theme {
+ *   --color-accent: …;
+ * }
+ */
