@@ -1,6 +1,6 @@
 # ローカル開発専用のイメージ（本番は Cloudflare Workers で動くので、これは本番では使わない）。
 # ソースは docker-compose.dev.yml でマウントするため、イメージにはツールだけを入れる。
-FROM node:24.22.0-bookworm-slim
+FROM node:26.13.1-bookworm-slim
 
 # workerd（Cloudflare のローカル実行環境）が、システムの CA 証明書を要求する（軽量イメージには入っていない）
 RUN apt-get update \
