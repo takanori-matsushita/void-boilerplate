@@ -40,7 +40,7 @@ jobs:
       - name: 型チェック（全パッケージ・アプリ）
         run: vp run typecheck
       - name: 単体テスト
-        run: vp run test
+        run: vp run test:unit
       - name: 結合テスト用 Postgres（RLS 検証。アプリ用 / 管理用ロールを初期化）
         run: make db-up
       - name: 結合テスト
