@@ -37,7 +37,7 @@ services:
     <<: *app
     user: root
     command: >
-      chown node:node /workspace/node_modules /workspace/apps/admin/node_modules /workspace/apps/liff/node_modules
+      chown node:node /workspace/node_modules /workspace/apps/admin/node_modules /workspace/apps/liff/node_modules /workspace/apps/admin/.void /workspace/apps/liff/.void
       /workspace/packages/db/node_modules /workspace/packages/core/node_modules /workspace/packages/shared/node_modules
       /workspace/packages/line/node_modules /workspace/packages/stripe/node_modules
     volumes:
@@ -45,6 +45,9 @@ services:
       - nm_root:/workspace/node_modules
       - nm_admin:/workspace/apps/admin/node_modules
       - nm_liff:/workspace/apps/liff/node_modules
+      # .void（Void の生成物）もコンテナ専用。ホストで型チェック・ビルドをすると、ホストの絶対パスで書き換わり、コンテナの開発サーバーが壊れる
+      - nm_void_admin:/workspace/apps/admin/.void
+      - nm_void_liff:/workspace/apps/liff/.void
       - nm_db:/workspace/packages/db/node_modules
       - nm_core:/workspace/packages/core/node_modules
       - nm_shared:/workspace/packages/shared/node_modules
@@ -61,6 +64,9 @@ services:
       - nm_root:/workspace/node_modules
       - nm_admin:/workspace/apps/admin/node_modules
       - nm_liff:/workspace/apps/liff/node_modules
+      # .void（Void の生成物）もコンテナ専用。ホストで型チェック・ビルドをすると、ホストの絶対パスで書き換わり、コンテナの開発サーバーが壊れる
+      - nm_void_admin:/workspace/apps/admin/.void
+      - nm_void_liff:/workspace/apps/liff/.void
       - nm_db:/workspace/packages/db/node_modules
       - nm_core:/workspace/packages/core/node_modules
       - nm_shared:/workspace/packages/shared/node_modules
@@ -85,6 +91,9 @@ services:
       - nm_root:/workspace/node_modules
       - nm_admin:/workspace/apps/admin/node_modules
       - nm_liff:/workspace/apps/liff/node_modules
+      # .void（Void の生成物）もコンテナ専用。ホストで型チェック・ビルドをすると、ホストの絶対パスで書き換わり、コンテナの開発サーバーが壊れる
+      - nm_void_admin:/workspace/apps/admin/.void
+      - nm_void_liff:/workspace/apps/liff/.void
       - nm_db:/workspace/packages/db/node_modules
       - nm_core:/workspace/packages/core/node_modules
       - nm_shared:/workspace/packages/shared/node_modules
@@ -106,6 +115,9 @@ services:
       - nm_root:/workspace/node_modules
       - nm_admin:/workspace/apps/admin/node_modules
       - nm_liff:/workspace/apps/liff/node_modules
+      # .void（Void の生成物）もコンテナ専用。ホストで型チェック・ビルドをすると、ホストの絶対パスで書き換わり、コンテナの開発サーバーが壊れる
+      - nm_void_admin:/workspace/apps/admin/.void
+      - nm_void_liff:/workspace/apps/liff/.void
       - nm_db:/workspace/packages/db/node_modules
       - nm_core:/workspace/packages/core/node_modules
       - nm_shared:/workspace/packages/shared/node_modules
@@ -134,6 +146,9 @@ services:
       - nm_root:/workspace/node_modules
       - nm_admin:/workspace/apps/admin/node_modules
       - nm_liff:/workspace/apps/liff/node_modules
+      # .void（Void の生成物）もコンテナ専用。ホストで型チェック・ビルドをすると、ホストの絶対パスで書き換わり、コンテナの開発サーバーが壊れる
+      - nm_void_admin:/workspace/apps/admin/.void
+      - nm_void_liff:/workspace/apps/liff/.void
       - nm_db:/workspace/packages/db/node_modules
       - nm_core:/workspace/packages/core/node_modules
       - nm_shared:/workspace/packages/shared/node_modules
@@ -155,6 +170,8 @@ volumes:
   nm_root:
   nm_admin:
   nm_liff:
+  nm_void_admin:
+  nm_void_liff:
   nm_db:
   nm_core:
   nm_shared:
