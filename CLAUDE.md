@@ -23,7 +23,7 @@
 - DB：Neon（PostgreSQL）+ Drizzle（`void/db`）。本番は Hyperdrive 経由。**D1 は使わない**
 - 管理者認証：Better Auth（organization プラグイン：クラブ＝組織、コーチ・事務＝メンバー）。`better-auth` はアプリの直接依存にする
 - 保護者認証：LIFF IDトークンをサーバーで検証 → 自前セッション発行
-- 決済：Stripe Connect（Standardアカウント、Direct charges、application fee）
+- 決済：Stripe Connect（**Express アカウント。プラットフォームが保護者から集金し、各クラブへ送金する**。Destination charges か Separate charges and transfers かは、フェーズ 8 で決める。application fee）。クラブに Stripe の知識を要求しないため。**制度面・責任面は確認待ち**（下の「Stripe」）
 - 管理画面：React（Void Pages のルーティング、**SSR なし**：各ページの `.server.ts` で `export const ssr = false`）+ TanStack Query / Form / Table + **React Aria Components**
 - 保護者画面：LIFF（Void + React、同じく SSR なし）、管理画面とは別アプリ・別 Worker
 - UI 部品：**React Aria Components（RAC）+ Tailwind CSS**（RAC は Adobe 製。スタイル無しのアクセシブルな部品で、カレンダー・日付ピッカー・テーブル・コンボボックスを含み、ロケールとモバイルのタッチ操作に強い）。選定の根拠は、日付・カレンダー中心の業務アプリで、モバイル（LIFF）と国際化が要ること。代償は、Radix 系（shadcn/ui）より大きいこと（ダイアログ + セレクトで gzip 約 +56 KB 対 +30 KB、日付ピッカーで +74 KB。実測）と、見た目を自前で作ること。**shadcn/ui など、他の UI ライブラリは導入しない**
@@ -109,6 +109,7 @@ Void に名前付き環境はない（ドキュメントにも「ターゲット
 - 本番ロールバックは `void project rollback`（Worker の版のみ。DB は戻らない）。デプロイは既定の `staged`（readiness 確認後に切替え、失敗時は自動で元の版に戻る）
 
 ### 認証
+- **権限モデルは `docs/design/permissions.md`**（標準ロール = 運営者・事務・コーチ、クラブが作れるカスタムロール、拠点の絞り込みはメンバーごと、権限カタログ、昇格の防止、保護者は関係で決まる）。権限カタログは `packages/shared`、認可の純粋関数（`authorize` / `siteScope` / `canDefineRole` / `leavesAtLeastOneAdmin`）は `packages/core/src/domain`。
 - Better Auth は organization プラグインを有効にし、アクティブな組織から tenant_id を決定する
 - Better Auth の組織 ID は uuid ではなくランダム文字列。`tenant` テーブル（UUID v7）に `organization.id` との対応を持たせて `tenant_id` に変換する（検証時の SHA-256 による写像は使わない）。検証用の `x-tenant-id` ヘッダによる上書きは本実装に持ち込まない
 - 認証系のテーブルは `void db generate` のマイグレーションに含まれる。アプリ用ロールに必要な GRANT（`ALTER DEFAULT PRIVILEGES` 等）をマイグレーションに含める
@@ -123,10 +124,20 @@ Void に名前付き環境はない（ドキュメントにも「ターゲット
 - 通知は短文＋LIFFへのリンク。本文はLIFFで表示し既読を取る
 
 ### Stripe
-- Direct charges：決済は各クラブの連結アカウント上で作成し、プラットフォームは application fee のみ受け取る
-- 月謝は Stripe Subscriptions に依存しない。請求は自前DBで確定させ、連結アカウント上で Invoice / Checkout を作成
-- Webhook は `/api/stripe/webhook`、認証の外。生ボディを取得し `constructEventAsync` で検証（同期版は Workers で不可）
-- イベントの `account` からテナントを特定。処理済みイベントIDを保存し冪等にする。Stripe API 呼び出しには冪等キーを付ける
+**方針（決定済み）**: Stripe Connect の **Express アカウント**で、**プラットフォームが保護者から集金し、各クラブ（連結アカウント）へ送金する**。クラブは Stripe のフル機能のダッシュボードを使わず、入金先の登録（本人確認・銀行口座）だけを、Stripe のホスト型フローで行う。資金は Stripe の残高上を動き、プラットフォームは自前の銀行口座で預からない。
+
+**確認待ち（フェーズ 8 の実装の前に解消する）**
+- Stripe サポートに、**任意団体・個人事業主の Express 登録の可否**と、Express の追加費用の額を確認する（公式の記述が見つかっていない）。
+- **弁護士**に、収納代行の整理（資金決済法）と、特商法の表記（売主がプラットフォームかクラブか。`on_behalf_of` の有無）を確認する。**税理士**に、インボイス（請求書の発行者。免税事業者のクラブには、媒介者交付特例が使えない）を確認する。
+- **責任の移動を設計する**: Express では、返金・チャージバック・不正利用・残高不足の責任がプラットフォームに移る。クラブの審査、差戻し（送金の取消）できない場合の損失の扱い（契約・保証金・与信）を決める。
+- 手数料: 「料金体系を貴社が管理」する場合、アクティブなアカウント 1 つにつき月 ¥200、入金 1 件ごとに 0.25% + ¥250（2026-11-28 時点。公式の料金ページ）。
+
+**実装の規約**
+- 請求・入金は、**決済の ports（「請求を決済する」「入金を記録する」など）の裏に隠す**。`packages/core` は Stripe を知らない（`packages/stripe` が ports の実装）。結果次第で、アカウントタイプや課金方式を差し替えられるようにする。
+- 月謝は Stripe Subscriptions に依存しない。請求は自前 DB で確定させ（兄弟割引・休会・日割り・振替で毎月変わるため）、保存した支払い方法に対して PaymentIntent で off-session 決済する（保護者には「毎月自動で引き落とされる」体験）。この方式の公式ドキュメントの確認は、フェーズ 8 で行う。
+- Webhook は `/api/stripe/webhook`、認証の外。生ボディを取得し `constructEventAsync` で検証（同期版は Workers で不可）。
+- イベントの `account`（連結アカウント）からテナントを特定する。処理済みイベント ID を保存し冪等にする。Stripe API 呼び出しには冪等キーを付ける。
+- 現金・振込の手動消込は、Stripe 入金と同じ形で記録する（ports の別の実装）。
 
 ### データ・コーディング規約
 - TypeScript strict。`any` 禁止
@@ -217,7 +228,7 @@ Void に名前付き環境はない（ドキュメントにも「ターゲット
 ## 実装の進め方（フェーズ）
 0. ~~Void 検証スパイク~~ **完了**（条件付き採用。`docs/void-spike-result.md`）
 1. ~~モノレポ雛形、CI、dev / stg / prod 環境~~ **雛形・スクリプト・CI は完了**（`README.md`）。クラウド上の dev / stg / prod の実環境の作成（Neon、Hyperdrive、GitHub Environments）は、承認のうえ別途実施
-2. DBスキーマ（テナント・拠点・マスタ）、RLS、テナントミドルウェア — **`tenant`・`site` と RLS（マイグレーション、全テーブルの RLS 漏れを検出する結合テスト）は完了。マスタのテーブルとテナントミドルウェアは未着手**（ミドルウェアは、テナントの決め方＝セッション → `tenant_id` の引き方を決めてから）
+2. DBスキーマ（テナント・拠点・マスタ）、RLS、テナントミドルウェア — **`tenant`・`site`、RLS、組織 ID → `tenant_id` の引き当て関数、テナントトランザクション（`runInTenantTransaction`）、ミドルウェア（`apps/admin/middleware/tenant.ts`）、権限カタログと認可の純粋関数は完了**。マスタのテーブルは未着手。ミドルウェアが使う「アクティブな組織」は、認証（フェーズ 3）で差し替える（いまは常に未決定 = 401）。liff 側のミドルウェア（テナントを URL から決める）はフェーズ 10
 3. 管理者認証（Better Auth + organization）、権限
 4. マスタ管理画面
 5. 会員・保護者管理、招待コード

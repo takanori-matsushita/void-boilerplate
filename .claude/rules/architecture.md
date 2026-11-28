@@ -57,6 +57,7 @@ globs: ["packages/**", "apps/*/routes/**", "apps/*/middleware/**", "apps/*/queue
 
 ## テナントとトランザクション
 
+- **`void db generate` は、スキーマの差分しか作れない**（`--custom` がない）。関数などの手書きのマイグレーションは、SQL・ジャーナル（`meta/_journal.json`）・スナップショット（前のものの複製。`id` / `prevId` を連鎖）を、`drizzle-kit --custom` と同じ形で手で足す（手本: `*_tenant_lookup`）。**`void db reset` は関数を消さない**ので、関数は `CREATE OR REPLACE` にする。
 - テナントに属するテーブルは、マイグレーションの末尾に `tenantTableRlsSql('<table>')`（`packages/db`）を追記する。適用漏れは結合テストが検知する。
 - Queue consumer・Cron は管理用ロール（RLS をバイパス）で動く。テナントの条件は SQL で明示し、他テナントに触れないことをテストで確認する。
 - 認証系の API（`getAuth(c).api.*`）は、テナントのトランザクション中に呼ばない（詰まる）。対象外のルートで行う。
