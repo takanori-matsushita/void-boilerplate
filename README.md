@@ -10,7 +10,7 @@
 |---|---|
 | 0. Void の検証 | 完了（条件付き採用。[`docs/void-spike-result.md`](./docs/void-spike-result.md)） |
 | 1. モノレポ雛形・CI・環境 | 雛形・スクリプト・CI は完了。**クラウド上の dev / stg / prod は未作成**（Neon・Hyperdrive・GitHub Environments は承認のうえ別途） |
-| 2. DB スキーマ・RLS・テナントミドルウェア | `tenant`・`site` と RLS は完了。**マスタのテーブルとテナントミドルウェアは未着手** |
+| 2. DB スキーマ・RLS・テナントミドルウェア | `tenant`・`site`、RLS、組織 → `tenant_id` の引き当て、テナントトランザクション、ミドルウェア、権限カタログ・認可の純粋関数は完了。**マスタのテーブルは未着手**。ミドルウェアが使う「アクティブな組織」は、認証（フェーズ 3）で差し替える（いまは常に 401） |
 | 3 以降 | 未着手（認証、マスタ管理、会員、スケジュール、イベント、請求・Stripe、LINE、LIFF） |
 
 ### 導入済み
@@ -20,7 +20,8 @@
 | フレームワーク・ツールチェーン | Void 1.12.0（固定）、Vite+（`vp` 1.7.0）、pnpm 10、Node 24.22 |
 | UI | React（SSR なし）、React Aria Components、Tailwind CSS 4（`components/ui/` に薄いラッパー） |
 | DB | PostgreSQL 18（ローカルは `postgres:18`）、Drizzle。主キーは **UUID v7（DB の `uuidv7()` で採番**。ID ライブラリは使わない） |
-| テナント分離 | RLS（アプリ用 `app_user` は強制、管理用 `app_admin` はバイパス）、`withTenant`（トランザクション + `set_config`）。テナント未設定は失敗する（安全側） |
+| テナント分離 | RLS（アプリ用 `app_user` は強制、管理用 `app_admin` はバイパス）。ミドルウェア（`apps/admin/middleware/tenant.ts`）が、1 リクエスト = 1 テナントトランザクションを張る（`runInTenantTransaction`。組織 ID → `tenant_id` は `SECURITY DEFINER` の関数で引く）。テナント未設定は失敗する（安全側） |
+| 権限 | 設計は [`docs/design/permissions.md`](./docs/design/permissions.md)。権限カタログ・標準ロール（`packages/shared`）、認可の純粋関数（`packages/core`） |
 | バリデーション | Valibot（Zod は直接使わない） |
 | 日付 | `@internationalized/date`（`packages/core` の `domain/date.ts`。Asia/Tokyo の日付境界） |
 | テスト | Vitest（`vp test`）、Testing Library + happy-dom、実 Postgres の結合テスト、`fast-check`（性質ベース）、依存方向のテスト |
@@ -170,6 +171,8 @@ vp run db:migrate                                     # ローカル DB へマ�
 | `uuidv7() does not exist` | Postgres が 17 以下。ローカルは `postgres:18`（`docker-compose.dev.yml`）。古いボリューム・コンテナが残っていたら `make db-down` → `make db-up` |
 | コミットが「ホストに node_modules がありません」で止まる | 手順 4 を行う（ホストで `vp install`） |
 | コミットが整形・リントの違反で止まる | `make fix`（または `vp check --fix`）で直して、`git add` し直す |
+| 開発サーバーのログに `Migration error: permission denied for schema public` | 無害。開発サーバーの起動時に、Void がアプリ用ロールでマイグレーションを試して失敗するだけ（マイグレーションは `make migrate` が管理用ロールで適用する） |
+| 開発サーバーが `Failed to load url …/.void/entry.ts`（ホストの絶対パス）で失敗する | `.void` がホストとコンテナで共有されていた場合の症状。いまは、コンテナ専用のボリュームに分けてある。`make down` → `make up` で直る |
 | `make db-reset` / `make seed` の後にアプリが古い | 自動で再起動される。されなければ `make restart` |
 | 最初からやり直したい | `make clean`（`node_modules` のボリュームを削除）→ `make up` → `make seed`（DB は、コンテナを消すと空になるので、`make migrate` か `make seed` が要る） |
 

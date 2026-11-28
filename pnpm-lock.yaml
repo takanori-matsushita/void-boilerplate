@@ -190,6 +190,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@club/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@internationalized/date':
         specifier: 3.12.4
         version: 3.12.4
@@ -214,6 +217,10 @@ importers:
       valibot:
         specifier: 1.5.0
         version: 1.5.0(typescript@7.0.2)
+    devDependencies:
+      fast-check:
+        specifier: 4.11.0
+        version: 4.11.0
 
   packages/stripe: {}
 

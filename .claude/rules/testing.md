@@ -29,5 +29,6 @@ globs: ["**/*.test.ts", "**/*.test.tsx", "architecture/**", "vite.config.ts", "a
 - **契約による設計**: 事後条件（戻り値＋DB の更新後の状態）と、異常系の不変条件（例外時に DB が中途半端に変わっていない）の両方をアサートする。
 - コンポーネントテスト（③）で、実際のネットワーク送信やフォーム送信を伴う検証はしない（非同期の応答が別のテストへ漏れる）。送信を伴う通しは ④ で書く。後片付けは `cleanup`（`afterEach(cleanup)`）。
 - **全テーブルの RLS 漏れは `packages/db/test/schema.integration.test.ts` が検出する**（実際のマイグレーションを空の DB に適用し、public の全テーブルで RLS 有効＋ポリシーありを検査。例外は `RLS_EXEMPT` に理由つきで足す）。テーブルを足したら、マイグレーションの末尾に `tenantTableRlsSql` を追記する。
+- **テナントトランザクション（`runInTenantTransaction`）は、実 Postgres で検証する**（`packages/db/test/tenant-transaction.integration.test.ts`。アプリ用ロール・`max: 1` のプール）。ミドルウェアは薄く保ち、アプリ側のテストは、`void/db` だけを `vi.mock` して、分岐（対象外のパス・組織が決まらない）を確かめる。
 - テナント分離は、**テナント A のデータが B から見えないこと**と、**テナント未設定で失敗すること（安全側）**を必ず含める。
 - 並行して他のテストと衝突しないよう、結合テストは専用の一時データベースを作って使い、終わったら削除する（`packages/db/test/rls.integration.test.ts` が手本）。

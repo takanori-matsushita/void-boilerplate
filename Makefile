@@ -14,7 +14,7 @@ TOOLS_ROOT := $(COMPOSE) run --rm -w /workspace tools
 RESTART_APPS := $(COMPOSE) ps -q admin liff | grep -q . && $(COMPOSE) restart admin liff || true
 
 # コンテナ専用の node_modules のマウント先。ホスト側に先に作っておかないと、Docker が root 所有で作ってしまう
-NODE_MODULES_DIRS := node_modules apps/admin/node_modules apps/liff/node_modules \
+NODE_MODULES_DIRS := node_modules apps/admin/node_modules apps/liff/node_modules apps/admin/.void apps/liff/.void \
 	packages/db/node_modules packages/core/node_modules packages/shared/node_modules \
 	packages/line/node_modules packages/stripe/node_modules
 
