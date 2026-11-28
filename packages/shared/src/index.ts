@@ -10,3 +10,4 @@ export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 export const uuidSchema = v.pipe(v.string(), v.regex(UUID_PATTERN, 'UUID 形式ではありません'));
 export const tenantIdSchema = v.pipe(uuidSchema, v.brand('TenantId'));
 export type TenantId = v.InferOutput<typeof tenantIdSchema>;
+export * from './permissions.ts';
