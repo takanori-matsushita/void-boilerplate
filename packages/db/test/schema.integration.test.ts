@@ -101,6 +101,66 @@ describe('スキーマ全体の不変条件', () => {
   });
 });
 
+describe('tenant_id_for_organization（組織 ID → tenant_id の引き当て）', () => {
+  const ORG = 'org_9f2k3j4h5g6';
+  const lookup = (client: pg.Client, org: string | null) =>
+    client
+      .query<{ id: string | null }>('select tenant_id_for_organization($1) as id', [org])
+      .then((r) => r.rows[0]!.id);
+
+  beforeAll(async () => {
+    await admin.query('update tenant set organization_id = $1 where id = $2', [ORG, tenantA]);
+  });
+
+  it('アプリ用ロールが、テナントを設定する前でも、組織 ID から tenant_id を引ける', async () => {
+    expect(await lookup(app, ORG)).toBe(tenantA);
+  });
+
+  it('存在しない組織 ID・NULL では、NULL を返す（エラーにしない。呼び出し側が 403 にする）', async () => {
+    expect(await lookup(app, 'org_unknown')).toBeNull();
+    expect(await lookup(app, null)).toBeNull();
+  });
+
+  it('関数が、tenant テーブルを読む抜け道にならない（直接 select は、テナント未設定で失敗する）', async () => {
+    await expect(app.query('select * from tenant')).rejects.toThrow();
+  });
+
+  it('PUBLIC には実行権限がなく、app_user だけが実行できる', async () => {
+    const res = await admin.query<{ role: string; allowed: boolean }>(
+      `select r as role, has_function_privilege(r, 'tenant_id_for_organization(text)', 'execute') as allowed
+       from unnest(array['app_user', 'public']) r order by r`,
+    );
+
+    expect(res.rows).toEqual([
+      { role: 'app_user', allowed: true },
+      { role: 'public', allowed: false },
+    ]);
+  });
+
+  it('SECURITY DEFINER で、search_path が固定されている（関数の差し替えによる乗っ取りを防ぐ）', async () => {
+    const res = await admin.query<{ definer: boolean; config: string[] }>(
+      "select prosecdef as definer, proconfig as config from pg_proc where proname = 'tenant_id_for_organization'",
+    );
+
+    expect(res.rows[0]?.definer).toBe(true);
+    expect(res.rows[0]?.config).toContain('search_path=public, pg_temp');
+  });
+
+  it('引いた tenant_id を、同じ文でトランザクションに設定すると、そのテナントの行だけが見える', async () => {
+    const names = await (async () => {
+      await app.query('begin');
+      try {
+        await app.query("select set_config('app.tenant_id', tenant_id_for_organization($1)::text, true)", [ORG]);
+        return (await app.query<{ name: string }>('select name from site order by name')).rows.map((r) => r.name);
+      } finally {
+        await app.query('rollback');
+      }
+    })();
+
+    expect(names).toEqual(['A 体育館', 'A 競技場']);
+  });
+});
+
 describe('tenant', () => {
   it('主キーは DB が採番する UUID v7 で、時刻順に増える', async () => {
     const ids = await admin.query<{ id: string; version: number }>(
